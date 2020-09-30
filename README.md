@@ -1,2 +1,2 @@
-# TsnkIA
+# TankIA
 Tank game implementing IA
