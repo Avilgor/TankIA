@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -50,7 +51,6 @@ namespace Complete
                 // ... set their material color to the color specific to this tank.
                 renderers[i].material.color = m_PlayerColor;
             }
-
             m_SpawnPoint = RandomPointNavMesh(Vector3.zero);
         }
 
@@ -74,7 +74,7 @@ namespace Complete
         }
 
         // Used during the phases of the game where the player shouldn't be able to control their tank.
-        public void DisableControl ()
+        public void DisableControl()
         {
             m_Movement.enabled = false;
             m_Shooting.enabled = false;
@@ -98,7 +98,6 @@ namespace Complete
         {
             m_SpawnPoint = RandomPointNavMesh(Vector3.zero);
             m_Instance.transform.position = m_SpawnPoint;
-
             m_Instance.SetActive (false);
             m_Instance.SetActive (true);
         }

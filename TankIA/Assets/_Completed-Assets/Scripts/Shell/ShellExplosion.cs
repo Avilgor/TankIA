@@ -20,38 +20,43 @@ namespace Complete
         }
 
 
-        private void OnTriggerEnter (Collider other)
+        private void OnCollisionEnter(Collision collision)
+        //private void OnTriggerEnter (Collider other)
         {
-			// Collect all the colliders in a sphere from the shell's current position to a radius of the explosion radius.
-            Collider[] colliders = Physics.OverlapSphere (transform.position, m_ExplosionRadius, m_TankMask);
-
-            // Go through all the colliders...
-            for (int i = 0; i < colliders.Length; i++)
+            
+            if (collision.gameObject.CompareTag("Player"))
             {
+                // Collect all the colliders in a sphere from the shell's current position to a radius of the explosion radius.
+                //Collider[] colliders = Physics.OverlapSphere (transform.position, m_ExplosionRadius, m_TankMask);
+
+                // Go through all the colliders...
+                //for (int i = 0; i < colliders.Length; i++)
+                //{
                 // ... and find their rigidbody.
-                Rigidbody targetRigidbody = colliders[i].GetComponent<Rigidbody> ();
+                Rigidbody targetRigidbody = collision.gameObject.GetComponent<Rigidbody>();
 
                 // If they don't have a rigidbody, go on to the next collider.
-                if (!targetRigidbody)
-                    continue;
+                if (targetRigidbody)
+                {
+                    // Add an explosion force.
+                    targetRigidbody.AddExplosionForce(m_ExplosionForce / 4, transform.position, m_ExplosionRadius);
 
-                // Add an explosion force.
-                targetRigidbody.AddExplosionForce (m_ExplosionForce, transform.position, m_ExplosionRadius);
+                    // Find the TankHealth script associated with the rigidbody.
+                    TankHealth targetHealth = targetRigidbody.GetComponent<TankHealth>();
 
-                // Find the TankHealth script associated with the rigidbody.
-                TankHealth targetHealth = targetRigidbody.GetComponent<TankHealth> ();
+                    // If there is no TankHealth script attached to the gameobject, go on to the next collider.
+                    if (targetHealth)
+                    {
+                        // Calculate the amount of damage the target should take based on it's distance from the shell.
+                        float damage = CalculateDamage(targetRigidbody.position);
 
-                // If there is no TankHealth script attached to the gameobject, go on to the next collider.
-                if (!targetHealth)
-                    continue;
-
-                // Calculate the amount of damage the target should take based on it's distance from the shell.
-                float damage = CalculateDamage (targetRigidbody.position);
-
-                // Deal this damage to the tank.
-                targetHealth.TakeDamage (damage);
+                        // Deal this damage to the tank.
+                        targetHealth.TakeDamage(damage);
+                    }                 
+                }                
             }
-
+            //}
+        
             // Unparent the particles from the shell.
             m_ExplosionParticles.transform.parent = null;
 

@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -12,11 +13,11 @@ namespace Complete
         public AudioSource m_MovementAudio;         // Reference to the audio source used to play engine sounds. NB: different to the shooting audio source.
         public AudioClip m_EngineIdling;            // Audio to play when the tank isn't moving.
         public AudioClip m_EngineDriving;           // Audio to play when the tank is moving.
-		public float m_PitchRange = 0.2f;           // The amount by which the pitch of the engine noises can vary.
+        public float m_PitchRange = 0.2f;           // The amount by which the pitch of the engine noises can vary.
         public bool player;
+        public TankShooting shootManager;
 
-        private string m_MovementAxisName;          // The name of the input axis for moving forward and back.
-        private string m_TurnAxisName;              // The name of the input axis for turning.
+        private string m_MovementAxisName;          // The name of the input axis for moving forward and back.            
         private Rigidbody m_Rigidbody;              // Reference used to move the tank.
         private float m_MovementInputValue;         // The current value of the movement input.
         private float m_TurnInputValue;             // The current value of the turn input.
@@ -28,26 +29,32 @@ namespace Complete
         private int pathIndex = 0;
         private Vector3 direction;
         private float turnAngle;
-        private float acceleration;
+        List<GameObject> targets;
+        private Transform currentTarget;
+        private Transform seekTarget;
+        private bool move;
 
-        private void Awake ()
+        private void Awake()
         {
             path = new NavMeshPath();
-            m_Rigidbody = GetComponent<Rigidbody> ();
+            m_Rigidbody = GetComponent<Rigidbody>();
+            targets = new List<GameObject>();
         }
 
 
-        private void OnEnable ()
+        private void OnEnable()
         {
             // When the tank is turned on, make sure it's not kinematic.
             m_Rigidbody.isKinematic = false;
             gotPoint = false;
-            
+            StopAllCoroutines();
             // Also reset the input values.
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
             turnAngle = 0f;
-            acceleration = 0f;
+            seekTarget = null;
+            targets.Clear();
+            move = true;
 
             // We grab all the Particle systems child of that Tank to be able to Stop/Play them on Deactivate/Activate
             // It is needed because we move the Tank when spawning it, and if the Particle System is playing while we do that
@@ -60,52 +67,53 @@ namespace Complete
         }
 
 
-        private void OnDisable ()
+        private void OnDisable()
         {
             // When the tank is turned off, set it to kinematic so it stops moving.
             m_Rigidbody.isKinematic = true;
 
             // Stop all particle system so it "reset" it's position to the actual one instead of thinking we moved when spawning
-            for(int i = 0; i < m_particleSystems.Length; ++i)
+            for (int i = 0; i < m_particleSystems.Length; ++i)
             {
                 m_particleSystems[i].Stop();
             }
         }
 
 
-        private void Start ()
+        private void Start()
         {
             // The axes names are based on player number.
             m_MovementAxisName = "Vertical" + m_PlayerNumber;
-            m_TurnAxisName = "Horizontal" + m_PlayerNumber;
 
             // Store the original pitch of the audio source.
             m_OriginalPitch = m_MovementAudio.pitch;
         }
 
 
-        private void Update ()
+        private void Update()
         {
             // Store the value of both input axes.
-            m_MovementInputValue = Input.GetAxis (m_MovementAxisName);
-            m_TurnInputValue = Input.GetAxis (m_TurnAxisName);
+            m_MovementInputValue = Input.GetAxis(m_MovementAxisName);
+            if (Input.GetKey(KeyCode.D)) m_TurnInputValue = 1;
+            else if (Input.GetKey(KeyCode.A)) m_TurnInputValue = -1;
+            else m_TurnInputValue = 0;
 
-            EngineAudio ();
+            EngineAudio();
         }
 
 
-        private void EngineAudio ()
+        private void EngineAudio()
         {
             // If there is no input (the tank is stationary)...
-            if (Mathf.Abs (m_MovementInputValue) < 0.1f && Mathf.Abs (m_TurnInputValue) < 0.1f)
+            if (Mathf.Abs(m_MovementInputValue) < 0.1f && Mathf.Abs(m_TurnInputValue) < 0.1f)
             {
                 // ... and if the audio source is currently playing the driving clip...
                 if (m_MovementAudio.clip == m_EngineDriving)
                 {
                     // ... change the clip to idling and play it.
                     m_MovementAudio.clip = m_EngineIdling;
-                    m_MovementAudio.pitch = Random.Range (m_OriginalPitch - m_PitchRange, m_OriginalPitch + m_PitchRange);
-                    m_MovementAudio.Play ();
+                    m_MovementAudio.pitch = Random.Range(m_OriginalPitch - m_PitchRange, m_OriginalPitch + m_PitchRange);
+                    m_MovementAudio.Play();
                 }
             }
             else
@@ -122,15 +130,15 @@ namespace Complete
         }
 
 
-        private void FixedUpdate ()
+        private void FixedUpdate()
         {
             // Adjust the rigidbodies position and orientation in FixedUpdate.
-            Move ();
-            Turn ();
+            Move();
+            Turn();
         }
 
 
-        private void Move ()
+        private void Move()
         {
             if (player)
             {
@@ -144,40 +152,66 @@ namespace Complete
             {
                 if (!gotPoint)
                 {
-                    destinationPoint = RandomPointNavMesh(transform.position);
-                    NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
-                    pathIndex = 0;
-                    if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                    else StartCoroutine(RecalculatePath());
-                    //else direction = (path.corners[pathIndex] - transform.position).normalized;
+                    StopAllCoroutines();
+                    //Debug.Log("New path");
+                    if (currentTarget != null)
+                    {
+                        Debug.Log("Shoot target");
+                        destinationPoint = RandomPointNavMesh(currentTarget.position,10.0f);
+                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
+                        pathIndex = 0;
+                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                        else
+                        {
+                            StartCoroutine(CheckPos());
+                            StartCoroutine(RecalculatePath());
+                        }
+                    }
+                    else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 20)
+                    {
+                        Debug.Log("Seek target");
+                        destinationPoint = seekTarget.position;
+                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
+                        pathIndex = 0;
+                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                        else
+                        {
+                            StartCoroutine(CheckPos());
+                            StartCoroutine(RecalculatePath());
+                        }
+                    }
+                    else
+                    {
+                        Debug.Log("No target");
+                        destinationPoint = RandomPointNavMesh(transform.position);
+                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
+                        pathIndex = 0;
+                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                        else
+                        {
+                            StartCoroutine(RecalculatePath());
+                            StartCoroutine(CheckPos());
+                        }
+                    }
                 }
-                else
+                else if(move)
                 {
                     for (int i = 0; i < path.corners.Length - 1; i++) Debug.DrawLine(path.corners[i], path.corners[i + 1], Color.red);
-                    /*if (acceleration < 1.0)
-                    {
-                        acceleration += 0.02f;
-                        if (acceleration > 1.0f) acceleration = 1.0f;
-                    }*/
 
-                    Vector3 move = transform.forward * m_Speed * /*acceleration **/ Time.deltaTime;              
+                    //Vector3 move = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
+                    Vector3 move = transform.forward * m_Speed * Time.deltaTime;
                     m_Rigidbody.MovePosition(m_Rigidbody.position + move);
 
                     if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 1f)
                     {
-                        if (pathIndex < path.corners.Length - 1) pathIndex++;
-                        else
-                        {
-                            StopAllCoroutines();
-                            gotPoint = false;
-                        }
+                        if (pathIndex < path.corners.Length - 1) pathIndex++;                       
+                        else gotPoint = false;
                     }
-                }            
+                }
             }
-            
         }
 
-        private void Turn ()
+        private void Turn()
         {
             if (player)
             {
@@ -192,38 +226,42 @@ namespace Complete
             }
             else
             {
-                if (turnAngle > 1.0f)
+                turnAngle = GetNewAngle();
+                //Debug.Log(turnAngle);
+                if (turnAngle > 2.0f)
                 {
-                    turnAngle -= m_TurnSpeed * Time.deltaTime;
+                    //Debug.Log("Turn left");
+                    //turnAngle -= m_TurnSpeed * Time.deltaTime;
                     Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
                     m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
                 }
-                else if (turnAngle < -1.0f)
+                else if (turnAngle < -2.0f)
                 {
-                    turnAngle += m_TurnSpeed * Time.deltaTime;
+                    //Debug.Log("Turn right");
+                    //turnAngle += m_TurnSpeed * Time.deltaTime;
                     Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
                     m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
                 }
-                else turnAngle = GetNewAngle();               
+                //else turnAngle = GetNewAngle();
             }
         }
 
         private float GetNewAngle()
         {
-            direction = (path.corners[pathIndex] - transform.position);       
-            float angle = Vector3.SignedAngle(direction, transform.forward,Vector3.up);
+            direction = (path.corners[pathIndex] - transform.position);
+            float angle = Vector3.SignedAngle(direction, transform.forward, Vector3.up);
             if (angle > 1.0f || angle < -1.0f) return angle;
-            else return 0;                    
+            else return 0;
         }
 
-        private Vector3 RandomPointNavMesh(Vector3 center)
+        private Vector3 RandomPointNavMesh(Vector3 center, float range = 100.0f)
         {
             Vector3 point = Vector3.zero;
             gotPoint = false;
             NavMeshHit hit;
             do
             {
-                Vector3 randomPoint = center + Random.insideUnitSphere * 100.0f;
+                Vector3 randomPoint = center + Random.insideUnitSphere * range;
                 if (NavMesh.SamplePosition(randomPoint, out hit, 1.0f, NavMesh.AllAreas))
                 {
                     point = hit.position;
@@ -232,6 +270,112 @@ namespace Complete
             } while (!gotPoint);
 
             return point;
+        }
+
+        private void SelectTarget()
+        {
+            if (targets.Count > 0)
+            {
+                if (targets.Count > 1)
+                {
+                    float min = 0;
+                    float d;
+                    for (int i = 0; i < targets.Count; i++)
+                    {
+                        d = Vector3.Distance(transform.position, targets[0].transform.position);
+                        if (min == 0)
+                        {
+                            min = d;
+                            currentTarget = targets[i].transform;
+                            shootManager.target = targets[i];
+                        }
+                        else if (d < min)
+                        {
+                            min = d;
+                            currentTarget = targets[i].transform;
+                            shootManager.target = targets[i];
+                        }
+                    }
+                }
+                else
+                {
+                    currentTarget = targets[0].transform;
+                    shootManager.target = targets[0];
+                }
+            }
+            else 
+            {
+                shootManager.target = null;
+                currentTarget = null;
+            }
+        }
+
+        private void OnTriggerEnter(Collider other)
+        {
+            if (!player && other.gameObject != gameObject)
+            {
+                if (other.CompareTag("Player"))
+                {
+                    targets.Add(other.gameObject);
+                    seekTarget = null;
+                    SelectTarget();
+                    gotPoint = false;
+                }
+            }
+        }
+
+        private void OnTriggerStay(Collider other)
+        {
+            if (!player && other.gameObject != gameObject)
+            {
+                if (other.CompareTag("Player"))
+                {
+                    SelectTarget();
+                }
+            }
+        }
+
+        private void OnTriggerExit(Collider other)
+        {
+            if (!player && other.gameObject != gameObject)
+            {
+                if (other.CompareTag("Player"))
+                {
+                    if (targets.Count > 1)
+                    {
+                        for (int i = 0; i < targets.Count; i++)
+                        {
+                            if (targets[i] == other.gameObject)
+                            {
+                                targets.Remove(other.gameObject);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        seekTarget = other.gameObject.transform;
+                        targets.Remove(other.gameObject);
+                    }
+                    SelectTarget();
+                }
+            }
+        }
+
+        private IEnumerator CheckPos()
+        {
+            Vector3 lastPos = transform.position;
+            yield return new WaitForSeconds(2.0f);
+            if (Vector3.Distance(lastPos, transform.position) < 0.5) StartCoroutine(LockMove());
+            else StartCoroutine(CheckPos());
+        }
+
+        private IEnumerator LockMove()
+        {
+            Debug.Log("Moving locked");
+            move = false;
+            yield return new WaitForSeconds(3.0f);
+            move = true;
         }
 
         private IEnumerator RecalculatePath()
