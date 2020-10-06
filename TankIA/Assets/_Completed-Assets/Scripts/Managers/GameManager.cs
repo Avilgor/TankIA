@@ -41,7 +41,7 @@ namespace Complete
         private void SpawnAllTanks()
         {
             m_Tanks[0].m_Instance = Instantiate(m_TankPrefab, m_Tanks[0].m_SpawnPoint, Quaternion.identity) as GameObject;
-            m_Tanks[0].isPlayer = false;
+            m_Tanks[0].isPlayer = true;
             m_Tanks[0].Setup();
             // For all the tanks...
             for (int i = 1; i < m_Tanks.Length; i++)
@@ -64,7 +64,7 @@ namespace Complete
             //for (int i = 0; i < targets.Length; i++)
             //{
                 // ... set it to the appropriate tank transform.
-                targets/*[i]*/ = m_Tanks[0].m_Instance.transform;
+                targets/*[i]*/ = m_Tanks[1].m_Instance.transform;
             //}
 
             // These are the targets the camera should follow.

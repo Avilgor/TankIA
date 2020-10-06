@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using UnityEngine.AI;
 
 namespace Complete
@@ -25,9 +26,13 @@ namespace Complete
         private bool gotPoint;
         private NavMeshPath path;
         private int pathIndex = 0;
+        private Vector3 direction;
+        private float turnAngle;
+        private float acceleration;
 
         private void Awake ()
         {
+            path = new NavMeshPath();
             m_Rigidbody = GetComponent<Rigidbody> ();
         }
 
@@ -37,10 +42,12 @@ namespace Complete
             // When the tank is turned on, make sure it's not kinematic.
             m_Rigidbody.isKinematic = false;
             gotPoint = false;
-            path = new NavMeshPath();
+            
             // Also reset the input values.
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
+            turnAngle = 0f;
+            acceleration = 0f;
 
             // We grab all the Particle systems child of that Tank to be able to Stop/Play them on Deactivate/Activate
             // It is needed because we move the Tank when spawning it, and if the Particle System is playing while we do that
@@ -141,18 +148,29 @@ namespace Complete
                     NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                     pathIndex = 0;
                     if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                    else StartCoroutine(RecalculatePath());
+                    //else direction = (path.corners[pathIndex] - transform.position).normalized;
                 }
                 else
                 {
                     for (int i = 0; i < path.corners.Length - 1; i++) Debug.DrawLine(path.corners[i], path.corners[i + 1], Color.red);
-                    Vector3 movement = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
-                  
-                    m_Rigidbody.MovePosition(m_Rigidbody.position + movement);
+                    /*if (acceleration < 1.0)
+                    {
+                        acceleration += 0.02f;
+                        if (acceleration > 1.0f) acceleration = 1.0f;
+                    }*/
+
+                    Vector3 move = transform.forward * m_Speed * /*acceleration **/ Time.deltaTime;              
+                    m_Rigidbody.MovePosition(m_Rigidbody.position + move);
 
                     if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 1f)
                     {
-                        if (pathIndex < path.corners.Length-1) pathIndex++;
-                        else gotPoint = false;
+                        if (pathIndex < path.corners.Length - 1) pathIndex++;
+                        else
+                        {
+                            StopAllCoroutines();
+                            gotPoint = false;
+                        }
                     }
                 }            
             }
@@ -174,12 +192,28 @@ namespace Complete
             }
             else
             {
-                float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
-
-                Quaternion turnRotation = Quaternion.Euler(0f, turn, 0f);
-
-                m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                if (turnAngle > 1.0f)
+                {
+                    turnAngle -= m_TurnSpeed * Time.deltaTime;
+                    Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
+                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                }
+                else if (turnAngle < -1.0f)
+                {
+                    turnAngle += m_TurnSpeed * Time.deltaTime;
+                    Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
+                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                }
+                else turnAngle = GetNewAngle();               
             }
+        }
+
+        private float GetNewAngle()
+        {
+            direction = (path.corners[pathIndex] - transform.position);       
+            float angle = Vector3.SignedAngle(direction, transform.forward,Vector3.up);
+            if (angle > 1.0f || angle < -1.0f) return angle;
+            else return 0;                    
         }
 
         private Vector3 RandomPointNavMesh(Vector3 center)
@@ -198,6 +232,17 @@ namespace Complete
             } while (!gotPoint);
 
             return point;
+        }
+
+        private IEnumerator RecalculatePath()
+        {
+            yield return new WaitForSeconds(5.0f);
+            if (gotPoint)
+            {
+                NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
+                pathIndex = 0;
+            }
+            StartCoroutine(RecalculatePath());
         }
     }
 }
