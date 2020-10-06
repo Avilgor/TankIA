@@ -64,7 +64,7 @@ namespace Complete
             //for (int i = 0; i < targets.Length; i++)
             //{
                 // ... set it to the appropriate tank transform.
-                targets/*[i]*/ = m_Tanks[1].m_Instance.transform;
+                targets/*[i]*/ = m_Tanks[0].m_Instance.transform;
             //}
 
             // These are the targets the camera should follow.
