@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.AI;
 
 namespace Complete
 {
@@ -11,6 +12,7 @@ namespace Complete
         public AudioClip m_EngineIdling;            // Audio to play when the tank isn't moving.
         public AudioClip m_EngineDriving;           // Audio to play when the tank is moving.
 		public float m_PitchRange = 0.2f;           // The amount by which the pitch of the engine noises can vary.
+        public bool player;
 
         private string m_MovementAxisName;          // The name of the input axis for moving forward and back.
         private string m_TurnAxisName;              // The name of the input axis for turning.
@@ -19,6 +21,10 @@ namespace Complete
         private float m_TurnInputValue;             // The current value of the turn input.
         private float m_OriginalPitch;              // The pitch of the audio source at the start of the scene.
         private ParticleSystem[] m_particleSystems; // References to all the particles systems used by the Tanks
+        private Vector3 destinationPoint;
+        private bool gotPoint;
+        private NavMeshPath path;
+        private int pathIndex = 0;
 
         private void Awake ()
         {
@@ -30,7 +36,8 @@ namespace Complete
         {
             // When the tank is turned on, make sure it's not kinematic.
             m_Rigidbody.isKinematic = false;
-
+            gotPoint = false;
+            path = new NavMeshPath();
             // Also reset the input values.
             m_MovementInputValue = 0f;
             m_TurnInputValue = 0f;
@@ -118,24 +125,79 @@ namespace Complete
 
         private void Move ()
         {
-            // Create a vector in the direction the tank is facing with a magnitude based on the input, speed and the time between frames.
-            Vector3 movement = transform.forward * m_MovementInputValue * m_Speed * Time.deltaTime;
+            if (player)
+            {
+                // Create a vector in the direction the tank is facing with a magnitude based on the input, speed and the time between frames.
+                Vector3 movement = transform.forward * m_MovementInputValue * m_Speed * Time.deltaTime;
 
-            // Apply this movement to the rigidbody's position.
-            m_Rigidbody.MovePosition(m_Rigidbody.position + movement);
+                // Apply this movement to the rigidbody's position.
+                m_Rigidbody.MovePosition(m_Rigidbody.position + movement);
+            }
+            else
+            {
+                if (!gotPoint)
+                {
+                    destinationPoint = RandomPointNavMesh(transform.position);
+                    NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
+                    pathIndex = 0;
+                    if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                }
+                else
+                {
+                    for (int i = 0; i < path.corners.Length - 1; i++) Debug.DrawLine(path.corners[i], path.corners[i + 1], Color.red);
+                    Vector3 movement = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
+                  
+                    m_Rigidbody.MovePosition(m_Rigidbody.position + movement);
+
+                    if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 1f)
+                    {
+                        if (pathIndex < path.corners.Length-1) pathIndex++;
+                        else gotPoint = false;
+                    }
+                }            
+            }
+            
         }
-
 
         private void Turn ()
         {
-            // Determine the number of degrees to be turned based on the input, speed and time between frames.
-            float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
+            if (player)
+            {
+                // Determine the number of degrees to be turned based on the input, speed and time between frames.
+                float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
 
-            // Make this into a rotation in the y axis.
-            Quaternion turnRotation = Quaternion.Euler (0f, turn, 0f);
+                // Make this into a rotation in the y axis.
+                Quaternion turnRotation = Quaternion.Euler(0f, turn, 0f);
 
-            // Apply this rotation to the rigidbody's rotation.
-            m_Rigidbody.MoveRotation (m_Rigidbody.rotation * turnRotation);
+                // Apply this rotation to the rigidbody's rotation.
+                m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+            }
+            else
+            {
+                float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
+
+                Quaternion turnRotation = Quaternion.Euler(0f, turn, 0f);
+
+                m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+            }
+        }
+
+        private Vector3 RandomPointNavMesh(Vector3 center)
+        {
+            Vector3 point = Vector3.zero;
+            gotPoint = false;
+            NavMeshHit hit;
+            do
+            {
+                Vector3 randomPoint = center + Random.insideUnitSphere * 100.0f;
+                if (NavMesh.SamplePosition(randomPoint, out hit, 1.0f, NavMesh.AllAreas))
+                {
+                    point = hit.position;
+                    gotPoint = true;
+                }
+            } while (!gotPoint);
+
+            return point;
         }
     }
 }

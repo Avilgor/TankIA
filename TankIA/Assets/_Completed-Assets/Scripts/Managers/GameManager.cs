@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
@@ -39,13 +40,16 @@ namespace Complete
 
         private void SpawnAllTanks()
         {
+            m_Tanks[0].m_Instance = Instantiate(m_TankPrefab, m_Tanks[0].m_SpawnPoint, Quaternion.identity) as GameObject;
+            m_Tanks[0].isPlayer = false;
+            m_Tanks[0].Setup();
             // For all the tanks...
-            for (int i = 0; i < m_Tanks.Length; i++)
+            for (int i = 1; i < m_Tanks.Length; i++)
             {
                 // ... create them, set their player number and references needed for control.
                 m_Tanks[i].m_Instance =
-                    Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint.position, m_Tanks[i].m_SpawnPoint.rotation) as GameObject;
-                m_Tanks[i].m_PlayerNumber = i + 1;
+                    Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint, Quaternion.identity) as GameObject;
+                m_Tanks[0].isPlayer = false;
                 m_Tanks[i].Setup();
             }
         }
@@ -54,14 +58,14 @@ namespace Complete
         private void SetCameraTargets()
         {
             // Create a collection of transforms the same size as the number of tanks.
-            Transform[] targets = new Transform[m_Tanks.Length];
+            Transform/*[]*/ targets; /*= new Transform[m_Tanks.Length]*/;
 
             // For each of these transforms...
-            for (int i = 0; i < targets.Length; i++)
-            {
+            //for (int i = 0; i < targets.Length; i++)
+            //{
                 // ... set it to the appropriate tank transform.
-                targets[i] = m_Tanks[i].m_Instance.transform;
-            }
+                targets/*[i]*/ = m_Tanks[0].m_Instance.transform;
+            //}
 
             // These are the targets the camera should follow.
             m_CameraControl.m_Targets = targets;

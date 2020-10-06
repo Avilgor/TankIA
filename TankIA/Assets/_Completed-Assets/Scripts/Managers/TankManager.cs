@@ -1,5 +1,6 @@
 ﻿using System;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace Complete
 {
@@ -12,7 +13,8 @@ namespace Complete
         // different phases of the game.
 
         public Color m_PlayerColor;                             // This is the color this tank will be tinted.
-        public Transform m_SpawnPoint;                          // The position and direction the tank will have when it spawns.
+        public Vector3  m_SpawnPoint;
+        public bool isPlayer;// The position and direction the tank will have when it spawns.
         [HideInInspector] public int m_PlayerNumber;            // This specifies which player this the manager for.
         [HideInInspector] public string m_ColoredPlayerText;    // A string that represents the player with their number colored to match their tank.
         [HideInInspector] public GameObject m_Instance;         // A reference to the instance of the tank when it is created.
@@ -27,13 +29,14 @@ namespace Complete
         public void Setup ()
         {
             // Get references to the components.
+            //agent = m_Instance.GetComponent<NavMeshAgent>();
             m_Movement = m_Instance.GetComponent<TankMovement> ();
             m_Shooting = m_Instance.GetComponent<TankShooting> ();
             m_CanvasGameObject = m_Instance.GetComponentInChildren<Canvas> ().gameObject;
 
             // Set the player numbers to be consistent across the scripts.
-            m_Movement.m_PlayerNumber = m_PlayerNumber;
-            m_Shooting.m_PlayerNumber = m_PlayerNumber;
+            m_Movement.player = isPlayer;
+            m_Shooting.player = isPlayer;
 
             // Create a string using the correct color that says 'PLAYER 1' etc based on the tank's color and the player's number.
             m_ColoredPlayerText = "<color=#" + ColorUtility.ToHtmlStringRGB(m_PlayerColor) + ">PLAYER " + m_PlayerNumber + "</color>";
@@ -47,8 +50,28 @@ namespace Complete
                 // ... set their material color to the color specific to this tank.
                 renderers[i].material.color = m_PlayerColor;
             }
+
+            m_SpawnPoint = RandomPointNavMesh(Vector3.zero);
         }
 
+        private Vector3 RandomPointNavMesh(Vector3 center)
+        {
+            Vector3 point = Vector3.zero;
+            bool gotPoint = false;           
+            NavMeshHit hit;
+            
+            do
+            {
+                Vector3 randomPoint = center + UnityEngine.Random.insideUnitSphere * 100.0f;
+                if (NavMesh.SamplePosition(randomPoint, out hit, 1.0f, NavMesh.AllAreas))
+                { 
+                    point = hit.position;
+                    gotPoint = true;
+                }
+            } while(!gotPoint);
+
+            return point;
+        }
 
         // Used during the phases of the game where the player shouldn't be able to control their tank.
         public void DisableControl ()
@@ -73,8 +96,8 @@ namespace Complete
         // Used at the start of each round to put the tank into it's default state.
         public void Reset ()
         {
-            m_Instance.transform.position = m_SpawnPoint.position;
-            m_Instance.transform.rotation = m_SpawnPoint.rotation;
+            m_SpawnPoint = RandomPointNavMesh(Vector3.zero);
+            m_Instance.transform.position = m_SpawnPoint;
 
             m_Instance.SetActive (false);
             m_Instance.SetActive (true);
