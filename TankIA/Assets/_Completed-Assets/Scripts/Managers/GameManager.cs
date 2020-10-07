@@ -15,6 +15,7 @@ namespace Complete
         public Text m_MessageText;                  // Reference to the overlay Text to display winning text, etc.
         public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
         public TankManager[] m_Tanks;               // A collection of managers for enabling and disabling different aspects of the tanks.
+        public GameObject pauseScreen;
 
         
         private int m_RoundNumber;                  // Which round the game is currently on.
@@ -128,7 +129,19 @@ namespace Complete
             // While there is not one tank left...
             while (!OneTankLeft())
             {
-                // ... return on the next frame.
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    if (pauseScreen.activeSelf)
+                    {
+                        pauseScreen.SetActive(false);
+                        Time.timeScale = 1;
+                    }
+                    else 
+                    {
+                        pauseScreen.SetActive(true);
+                        Time.timeScale = 0;
+                    }
+                }
                 yield return null;
             }
         }
@@ -160,6 +173,16 @@ namespace Complete
             yield return m_EndWait;
         }
 
+        public void ResumeGame()
+        {
+            pauseScreen.SetActive(false);
+            Time.timeScale = 1;
+        }
+
+        public void ExitGame()
+        {
+            Application.Quit();
+        }
 
         // This is used to check if there is one or fewer tanks remaining and thus the round should end.
         private bool OneTankLeft()

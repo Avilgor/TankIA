@@ -20,6 +20,7 @@ namespace Complete
         public bool player;
         public GameObject turret;
         public float turretTurnSpeed = 360.0f;
+        private Quaternion defaultTurretRotation;
 
         //private string m_FireButton;                // The input axis that is used for launching shells.
         private float m_CurrentLaunchForce;         // The force that will be given to the shell when the fire button is released.
@@ -39,13 +40,13 @@ namespace Complete
             m_Fired = false;
             target = null;
             angle = 0;
+            turret.transform.rotation = defaultTurretRotation;
         }
 
 
         private void Start ()
         {
-            // The fire axis is based on the player number.
-            //m_FireButton = "Fire" + m_PlayerNumber;
+            defaultTurretRotation = turret.transform.rotation;
 
             // The rate that the launch force charges up is the range of possible forces by the max charge time.
             //m_ChargeSpeed = (m_MaxLaunchForce - m_MinLaunchForce) / m_MaxChargeTime;
@@ -54,84 +55,52 @@ namespace Complete
 
         private void Update()
         {
-            if (player)
+            if (Time.timeScale > 0)
             {
-                if (Input.GetKeyDown(KeyCode.Space))
+                if (player)
                 {
-                    if (m_Fired == false) Fire();
-                }
-                if (Input.GetKey(KeyCode.LeftArrow))
-                {
-                    turret.transform.Rotate(0, -turretTurnSpeed * (Time.deltaTime * 50), 0,Space.Self);
-                }
-                if (Input.GetKey(KeyCode.RightArrow))
-                {
-                    turret.transform.Rotate(0, turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
-                }
-            }
-            else
-            {
-                if (target != null)
-                {
-                    if (Physics.Raycast(turret.transform.position, target.transform.position)) //Enemy in sight
+                    if (Input.GetKeyDown(KeyCode.Space))
                     {
-                        Debug.DrawLine(turret.transform.position, target.transform.position, Color.green);
-                        Vector3 direction = (target.transform.position - turret.transform.position);
-                        angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
+                        if (m_Fired == false) Fire();
                     }
-                    else //Not in sight
-                    {
-                        Vector3 direction = (gameObject.transform.position - turret.transform.position);
-                        angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
-                    }
-
-                    if (angle > 5.0f)
+                    if (Input.GetKey(KeyCode.LeftArrow))
                     {
                         turret.transform.Rotate(0, -turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
                     }
-                    else if (angle < -5.0f)
+                    if (Input.GetKey(KeyCode.RightArrow))
                     {
                         turret.transform.Rotate(0, turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
                     }
-                    
-                    if(angle < 10 && angle > -10 && !m_Fired) Fire();
                 }
-            }
-            // The slider should have a default value of the minimum launch force.
-            //m_AimSlider.value = m_MinLaunchForce;
+                else
+                {
+                    if (target != null)
+                    {
+                        if (Physics.Raycast(turret.transform.position, target.transform.position)) //Enemy in sight
+                        {
+                            Debug.DrawLine(turret.transform.position, target.transform.position, Color.green);
+                            Vector3 direction = (target.transform.position - turret.transform.position);
+                            angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
+                        }
+                        else //Not in sight
+                        {
+                            Vector3 direction = (gameObject.transform.position - turret.transform.position);
+                            angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
+                        }
 
-            // If the max force has been exceeded and the shell hasn't yet been launched...
-            /*if (m_CurrentLaunchForce >= m_MaxLaunchForce && !m_Fired)
-            {
-                // ... use the max force and launch the shell.
-                m_CurrentLaunchForce = m_MaxLaunchForce;
-                Fire ();
-            }
-            // Otherwise, if the fire button has just started being pressed...
-            else if (Input.GetButtonDown (m_FireButton))
-            {
-                // ... reset the fired flag and reset the launch force.
-                m_Fired = false;
-                m_CurrentLaunchForce = m_MinLaunchForce;
+                        if (angle > 5.0f)
+                        {
+                            turret.transform.Rotate(0, -turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
+                        }
+                        else if (angle < -5.0f)
+                        {
+                            turret.transform.Rotate(0, turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
+                        }
 
-                // Change the clip to the charging clip and start it playing.
-                m_ShootingAudio.clip = m_ChargingClip;
-                m_ShootingAudio.Play ();
+                        if (angle < 10 && angle > -10 && !m_Fired) Fire();
+                    }
+                }              
             }
-            // Otherwise, if the fire button is being held and the shell hasn't been launched yet...
-            else if (Input.GetButton (m_FireButton) && !m_Fired)
-            {
-                // Increment the launch force and update the slider.
-                m_CurrentLaunchForce += m_ChargeSpeed * Time.deltaTime;
-
-                m_AimSlider.value = m_CurrentLaunchForce;
-            }
-            // Otherwise, if the fire button is released and the shell hasn't been launched yet...
-            else if (Input.GetButtonUp (m_FireButton) && !m_Fired)
-            {
-                // ... launch the shell.
-                Fire ();
-            }*/
         }
 
 

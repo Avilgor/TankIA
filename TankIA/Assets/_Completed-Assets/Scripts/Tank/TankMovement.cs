@@ -132,9 +132,11 @@ namespace Complete
 
         private void FixedUpdate()
         {
-            // Adjust the rigidbodies position and orientation in FixedUpdate.
-            Move();
-            Turn();
+            if (Time.timeScale > 0)
+            {
+                Move();
+                Turn();
+            }
         }
 
 
@@ -153,7 +155,6 @@ namespace Complete
                 if (!gotPoint)
                 {
                     StopAllCoroutines();
-                    //Debug.Log("New path");
                     if (currentTarget != null)
                     {
                         Debug.Log("Shoot target");
