@@ -33,12 +33,19 @@ namespace Complete
         private Transform currentTarget;
         private Transform seekTarget;
         private bool move;
+        //private Vector3 rayOffsetLeft, rayOffsetRight;
 
         private void Awake()
         {
             path = new NavMeshPath();
             m_Rigidbody = GetComponent<Rigidbody>();
             targets = new List<GameObject>();
+            /*rayOffsetLeft.x = 0;
+            rayOffsetLeft.y = 0.5f;
+            rayOffsetLeft.z = -0.5f;
+            rayOffsetRight.x = 0.5f;
+            rayOffsetRight.y = 0.5f;
+            rayOffsetRight.z = 0;*/
         }
 
 
@@ -157,33 +164,33 @@ namespace Complete
                     StopAllCoroutines();
                     if (currentTarget != null)
                     {
-                        Debug.Log("Shoot target");
+                        Debug.Log("Shooting");
                         destinationPoint = RandomPointNavMesh(currentTarget.position,10.0f);
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
                         else
                         {
-                            StartCoroutine(CheckPos());
+                            //StartCoroutine(CheckPos());
                             StartCoroutine(RecalculatePath());
                         }
                     }
-                    else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 20)
+                    else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 30)
                     {
-                        Debug.Log("Seek target");
+                        Debug.Log("Seeking");
                         destinationPoint = seekTarget.position;
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
                         else
                         {
-                            StartCoroutine(CheckPos());
+                            //StartCoroutine(CheckPos());
                             StartCoroutine(RecalculatePath());
                         }
                     }
                     else
                     {
-                        Debug.Log("No target");
+                        Debug.Log("Wandering");
                         destinationPoint = RandomPointNavMesh(transform.position);
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
@@ -191,24 +198,31 @@ namespace Complete
                         else
                         {
                             StartCoroutine(RecalculatePath());
-                            StartCoroutine(CheckPos());
+                            //StartCoroutine(CheckPos());
                         }
                     }
                 }
                 else if(move)
                 {
-                    for (int i = 0; i < path.corners.Length - 1; i++) Debug.DrawLine(path.corners[i], path.corners[i + 1], Color.red);
+                    /*Debug.DrawRay(transform.position + rayOffsetLeft, transform.forward * 2.0f, Color.blue);
+                    Debug.DrawRay(transform.position + rayOffsetRight, transform.forward * 2.0f, Color.blue);
+                    if (!Physics.Raycast(transform.position + rayOffsetLeft, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground")) 
+                        && !Physics.Raycast(transform.position + rayOffsetRight, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground")))
+                    {*/
+                        //Vector3 move = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
+                        Vector3 move = transform.forward * m_Speed * Time.deltaTime;
+                        m_Rigidbody.MovePosition(m_Rigidbody.position + move);
 
-                    //Vector3 move = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
-                    Vector3 move = transform.forward * m_Speed * Time.deltaTime;
-                    m_Rigidbody.MovePosition(m_Rigidbody.position + move);
-
-                    if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 1f)
-                    {
-                        if (pathIndex < path.corners.Length - 1) pathIndex++;                       
-                        else gotPoint = false;
-                    }
+                        if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 2f)
+                        {
+                            if (pathIndex < path.corners.Length - 1) pathIndex++;
+                            else gotPoint = false;
+                        }
+                    //}
                 }
+
+                if(path.corners.Length > 0)
+                    for (int i = 0; i < path.corners.Length - 1; i++) Debug.DrawLine(path.corners[i], path.corners[i + 1], Color.red);
             }
         }
 
@@ -228,18 +242,13 @@ namespace Complete
             else
             {
                 turnAngle = GetNewAngle();
-                //Debug.Log(turnAngle);
-                if (turnAngle > 2.0f)
+                if (turnAngle > 2.0f || !move)
                 {
-                    //Debug.Log("Turn left");
-                    //turnAngle -= m_TurnSpeed * Time.deltaTime;
                     Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
                     m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
                 }
-                else if (turnAngle < -2.0f)
+                else if (turnAngle < -2.0f || !move)
                 {
-                    //Debug.Log("Turn right");
-                    //turnAngle += m_TurnSpeed * Time.deltaTime;
                     Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
                     m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
                 }
@@ -333,6 +342,11 @@ namespace Complete
                 {
                     SelectTarget();
                 }
+
+                if (other.gameObject.layer == 8)
+                {
+                    move = false;
+                }
             }
         }
 
@@ -361,13 +375,20 @@ namespace Complete
                     SelectTarget();
                 }
             }
+
+            if (other.gameObject.layer == 8)
+            {
+                move = true;
+            }
         }
 
         private IEnumerator CheckPos()
-        {
-            Vector3 lastPos = transform.position;
+        {            
             yield return new WaitForSeconds(2.0f);
-            if (Vector3.Distance(lastPos, transform.position) < 0.5) StartCoroutine(LockMove());
+            if (Physics.Raycast(transform.position, transform.forward,1.0f)) //Wall close
+            {
+                StartCoroutine(LockMove());
+            }
             else StartCoroutine(CheckPos());
         }
 
