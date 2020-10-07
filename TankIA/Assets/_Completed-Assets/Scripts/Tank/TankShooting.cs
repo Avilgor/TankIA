@@ -34,12 +34,6 @@ namespace Complete
         }
 
 
-        /*private void Start ()
-        {
-           
-        }*/
-
-
         private void Update()
         {
             if (Time.timeScale > 0)
@@ -93,14 +87,45 @@ namespace Complete
 
         private void Fire()
         {
-            // Set the fired flag so only Fire is only called once.
             m_Fired = true;
 
-            // Create an instance of the shell and store a reference to it's rigidbody.
+            float distance = Vector3.Distance(m_FireTransform.position, target.transform.position);
+            //Debug.Log("Distance: " + distance);
+            float shotAngle;
+            if (distance / 2 > m_CurrentLaunchForce) //objective out of range
+            {
+                shotAngle = 45.0f;
+            }
+            else
+            {
+                shotAngle = Mathf.Rad2Deg * Mathf.Acos((distance / 2) / m_CurrentLaunchForce); //Calculate shoot angle
+                if (shotAngle > 45) shotAngle = 90.0f - shotAngle; //Select shortest way
+
+                //Calculate height angle
+                if (m_FireTransform.position.y > target.transform.position.y)
+                {
+                    float a = m_FireTransform.position.y - target.transform.position.y;
+                    float fixAngle = Mathf.Rad2Deg * Mathf.Asin(a / distance); //Calculate fix angle
+                    shotAngle -= fixAngle;
+                    //Debug.Log("Fix angle: " + fixAngle);
+                }
+                else
+                {
+                    float a = target.transform.position.y - m_FireTransform.position.y;
+                    float fixAngle = Mathf.Rad2Deg * Mathf.Asin(a / distance); //Calculate fix angle
+                    shotAngle += fixAngle;
+                    //Debug.Log("Fix angle: " + fixAngle);
+                }
+            }
+            Debug.Log("Shot angle: "+ shotAngle);
+            Debug.DrawLine(m_FireTransform.position,target.transform.position,Color.magenta,3.0f);
+            
             GameObject shellInstance = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation);
+            Vector3 v = shellInstance.transform.rotation.eulerAngles;
+            shellInstance.transform.rotation = Quaternion.Euler(-shotAngle, v.y, v.z);
 
             // Set the shell's velocity to the launch force in the fire position's forward direction.
-            shellInstance.GetComponent<Rigidbody>().velocity = m_CurrentLaunchForce * m_FireTransform.forward.normalized;
+            shellInstance.GetComponent<Rigidbody>().velocity = m_CurrentLaunchForce * shellInstance.transform.forward.normalized;
 
             // Change the clip to the firing clip and play it.
             m_ShootingAudio.clip = m_FireClip;

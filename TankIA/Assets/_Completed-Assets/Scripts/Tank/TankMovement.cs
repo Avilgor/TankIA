@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using UnityEditor.UIElements;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -23,6 +24,7 @@ namespace Complete
         private float m_TurnInputValue;             // The current value of the turn input.
         private float m_OriginalPitch;              // The pitch of the audio source at the start of the scene.
         private ParticleSystem[] m_particleSystems; // References to all the particles systems used by the Tanks
+        
         private Vector3 destinationPoint;
         private bool gotPoint;
         private NavMeshPath path;
@@ -33,19 +35,16 @@ namespace Complete
         private Transform currentTarget;
         private Transform seekTarget;
         private bool move;
-        //private Vector3 rayOffsetLeft, rayOffsetRight;
+        private bool forward;
+        private Vector3 rayOffset;
+        private float xColPoint;
 
         private void Awake()
         {
             path = new NavMeshPath();
             m_Rigidbody = GetComponent<Rigidbody>();
             targets = new List<GameObject>();
-            /*rayOffsetLeft.x = 0;
-            rayOffsetLeft.y = 0.5f;
-            rayOffsetLeft.z = -0.5f;
-            rayOffsetRight.x = 0.5f;
-            rayOffsetRight.y = 0.5f;
-            rayOffsetRight.z = 0;*/
+            xColPoint = 0.0f;          
         }
 
 
@@ -62,6 +61,7 @@ namespace Complete
             seekTarget = null;
             targets.Clear();
             move = true;
+            forward = true;
 
             // We grab all the Particle systems child of that Tank to be able to Stop/Play them on Deactivate/Activate
             // It is needed because we move the Tank when spawning it, and if the Particle System is playing while we do that
@@ -94,6 +94,10 @@ namespace Complete
 
             // Store the original pitch of the audio source.
             m_OriginalPitch = m_MovementAudio.pitch;
+
+            rayOffset.x = 0;
+            rayOffset.z = 0;
+            rayOffset.y = 0.5f;
         }
 
 
@@ -169,11 +173,8 @@ namespace Complete
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                        else
-                        {
-                            //StartCoroutine(CheckPos());
-                            StartCoroutine(RecalculatePath());
-                        }
+                        //else StartCoroutine(RecalculatePath());
+                        
                     }
                     else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 30)
                     {
@@ -182,11 +183,7 @@ namespace Complete
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                        else
-                        {
-                            //StartCoroutine(CheckPos());
-                            StartCoroutine(RecalculatePath());
-                        }
+                        //else StartCoroutine(RecalculatePath());                      
                     }
                     else
                     {
@@ -195,30 +192,33 @@ namespace Complete
                         NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                         pathIndex = 0;
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                        else
-                        {
-                            StartCoroutine(RecalculatePath());
-                            //StartCoroutine(CheckPos());
-                        }
+                        else StartCoroutine(RecalculatePath());                           
                     }
                 }
                 else if(move)
                 {
-                    /*Debug.DrawRay(transform.position + rayOffsetLeft, transform.forward * 2.0f, Color.blue);
-                    Debug.DrawRay(transform.position + rayOffsetRight, transform.forward * 2.0f, Color.blue);
-                    if (!Physics.Raycast(transform.position + rayOffsetLeft, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground")) 
-                        && !Physics.Raycast(transform.position + rayOffsetRight, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground")))
-                    {*/
-                        //Vector3 move = (path.corners[pathIndex] - transform.position).normalized * m_Speed * Time.deltaTime;
+                    if (forward)
+                    {
+                        if (Physics.Raycast(transform.position + rayOffset, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground"))) StartCoroutine(StepBack());//forward = false;
+                    }
+                    //else forward = true;
+                    Debug.DrawRay(transform.position + rayOffset, transform.forward * 2.0f, Color.white);
+                    if (forward)
+                    {
                         Vector3 move = transform.forward * m_Speed * Time.deltaTime;
                         m_Rigidbody.MovePosition(m_Rigidbody.position + move);
+                    }
+                    else
+                    {
+                        Vector3 move = -transform.forward * m_Speed * Time.deltaTime;
+                        m_Rigidbody.MovePosition(m_Rigidbody.position + move);
+                    }
 
-                        if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 2f)
-                        {
-                            if (pathIndex < path.corners.Length - 1) pathIndex++;
-                            else gotPoint = false;
-                        }
-                    //}
+                    if (Vector3.Distance(path.corners[pathIndex], transform.position) <= 2f)
+                    {
+                        if (pathIndex < path.corners.Length - 1) pathIndex++;
+                        else gotPoint = false;
+                    }
                 }
 
                 if(path.corners.Length > 0)
@@ -241,26 +241,63 @@ namespace Complete
             }
             else
             {
+                /*if (!move)
+                {
+                    Debug.Log("Pos"+transform.position.z);
+                    if (xColPoint < transform.position.z) //Turn Left
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                    else //Turn Right
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                }
+                else
+                {*/
                 turnAngle = GetNewAngle();
-                if (turnAngle > 2.0f || !move)
+                //if (forward) //Turn forward
+                //{
+                    if (turnAngle > 2.0f) //Turn Left
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                    else if (turnAngle < -2.0f) //Turn Right
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                /*}
+                else //Turn backwards
                 {
-                    Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
-                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                }
-                else if (turnAngle < -2.0f || !move)
-                {
-                    Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
-                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                }
+                    if (turnAngle > 2.0f) //Turn Right
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                    else if (turnAngle < -2.0f) //Turn Left
+                    {
+                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
+                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                    }
+                }*/
+                //}
                 //else turnAngle = GetNewAngle();
             }
         }
 
         private float GetNewAngle()
         {
-            direction = (path.corners[pathIndex] - transform.position);
-            float angle = Vector3.SignedAngle(direction, transform.forward, Vector3.up);
-            if (angle > 1.0f || angle < -1.0f) return angle;
+            if (path.corners.Length > 0)
+            {
+                direction = (path.corners[pathIndex] - transform.position);
+                float angle = Vector3.SignedAngle(direction, transform.forward, Vector3.up);
+                if (angle > 1.0f || angle < -1.0f) return angle;
+                else return 0;
+            }
             else return 0;
         }
 
@@ -342,11 +379,6 @@ namespace Complete
                 {
                     SelectTarget();
                 }
-
-                if (other.gameObject.layer == 8)
-                {
-                    move = false;
-                }
             }
         }
 
@@ -375,30 +407,23 @@ namespace Complete
                     SelectTarget();
                 }
             }
-
-            if (other.gameObject.layer == 8)
-            {
-                move = true;
-            }
         }
 
-        private IEnumerator CheckPos()
-        {            
-            yield return new WaitForSeconds(2.0f);
-            if (Physics.Raycast(transform.position, transform.forward,1.0f)) //Wall close
-            {
-                StartCoroutine(LockMove());
-            }
-            else StartCoroutine(CheckPos());
+        private IEnumerator StepBack()
+        {
+            forward = false;
+            yield return new WaitForSeconds(0.5f);
+            forward = true;
+            gotPoint = false;
         }
 
-        private IEnumerator LockMove()
+        /*private IEnumerator LockMove()
         {
             Debug.Log("Moving locked");
             move = false;
             yield return new WaitForSeconds(3.0f);
             move = true;
-        }
+        }*/
 
         private IEnumerator RecalculatePath()
         {
