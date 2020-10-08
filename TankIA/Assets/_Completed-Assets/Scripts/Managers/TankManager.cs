@@ -44,7 +44,8 @@ namespace Complete
 
             // Get all of the renderers of the tank.
             MeshRenderer[] renderers = m_Instance.GetComponentsInChildren<MeshRenderer> ();
-
+            m_Movement.tankColor = m_PlayerColor;
+            m_Movement.tankID = m_PlayerNumber;
             // Go through all the renderers...
             for (int i = 0; i < renderers.Length; i++)
             {

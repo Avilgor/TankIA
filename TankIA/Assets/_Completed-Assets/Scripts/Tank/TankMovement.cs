@@ -17,6 +17,9 @@ namespace Complete
         public float m_PitchRange = 0.2f;           // The amount by which the pitch of the engine noises can vary.
         public bool player;
         public TankShooting shootManager;
+        public GameObject ammoPrefab;
+        public Color tankColor;
+        public int tankID;
 
         private string m_MovementAxisName;          // The name of the input axis for moving forward and back.            
         private Rigidbody m_Rigidbody;              // Reference used to move the tank.
@@ -37,14 +40,14 @@ namespace Complete
         private bool move;
         private bool forward;
         private Vector3 rayOffset;
-        private float xColPoint;
+        private bool noAmmo;
+        private Vector3 ammoLocation;
 
         private void Awake()
         {
             path = new NavMeshPath();
             m_Rigidbody = GetComponent<Rigidbody>();
-            targets = new List<GameObject>();
-            xColPoint = 0.0f;          
+            targets = new List<GameObject>();      
         }
 
 
@@ -62,7 +65,8 @@ namespace Complete
             targets.Clear();
             move = true;
             forward = true;
-
+            noAmmo = false;
+            ammoLocation = transform.position;
             // We grab all the Particle systems child of that Tank to be able to Stop/Play them on Deactivate/Activate
             // It is needed because we move the Tank when spawning it, and if the Particle System is playing while we do that
             // it "think" it move from (0,0,0) to the spawn point, creating a huge trail of smoke
@@ -98,6 +102,7 @@ namespace Complete
             rayOffset.x = 0;
             rayOffset.z = 0;
             rayOffset.y = 0.5f;
+            noAmmo = false;
         }
 
 
@@ -166,42 +171,47 @@ namespace Complete
                 if (!gotPoint)
                 {
                     StopAllCoroutines();
-                    if (currentTarget != null)
+                    if(noAmmo) //Going for Ammo
+                    {
+                        Debug.Log("Going for ammo");
+                        destinationPoint = ammoLocation;
+                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
+                        else gotPoint = true;
+                    }
+                    else if (currentTarget != null) //Got enemy in range
                     {
                         Debug.Log("Shooting");
                         destinationPoint = RandomPointNavMesh(currentTarget.position,10.0f);
-                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
-                        pathIndex = 0;
-                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                        //else StartCoroutine(RecalculatePath());
                         
+                        if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;                       
                     }
-                    else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 30)
+                    else if (seekTarget != null && Vector3.Distance(transform.position,seekTarget.position) < 30) // Seeking target
                     {
                         Debug.Log("Seeking");
                         destinationPoint = seekTarget.position;
-                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
-                        pathIndex = 0;
+
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
-                        //else StartCoroutine(RecalculatePath());                      
+                        else gotPoint = true;
                     }
-                    else
+                    else //Wandering
                     {
                         Debug.Log("Wandering");
                         destinationPoint = RandomPointNavMesh(transform.position);
-                        NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
-                        pathIndex = 0;
+
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
                         else StartCoroutine(RecalculatePath());                           
                     }
+
+                    pathIndex = 0;
+                    NavMesh.CalculatePath(transform.position, destinationPoint, NavMesh.AllAreas, path);
                 }
                 else if(move)
                 {
                     if (forward)
                     {
-                        if (Physics.Raycast(transform.position + rayOffset, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground"))) StartCoroutine(StepBack());//forward = false;
+                        if (Physics.Raycast(transform.position + rayOffset, transform.forward, 2.0f, 1 << LayerMask.NameToLayer("Ground"))) StartCoroutine(StepBack());
                     }
-                    //else forward = true;
+
                     Debug.DrawRay(transform.position + rayOffset, transform.forward * 2.0f, Color.white);
                     if (forward)
                     {
@@ -241,51 +251,18 @@ namespace Complete
             }
             else
             {
-                /*if (!move)
-                {
-                    Debug.Log("Pos"+transform.position.z);
-                    if (xColPoint < transform.position.z) //Turn Left
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                    else //Turn Right
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                }
-                else
-                {*/
                 turnAngle = GetNewAngle();
-                //if (forward) //Turn forward
-                //{
-                    if (turnAngle > 2.0f) //Turn Left
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                    else if (turnAngle < -2.0f) //Turn Right
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                /*}
-                else //Turn backwards
+
+                if (turnAngle > 2.0f) //Turn Left
                 {
-                    if (turnAngle > 2.0f) //Turn Right
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                    else if (turnAngle < -2.0f) //Turn Left
-                    {
-                        Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
-                        m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
-                    }
-                }*/
-                //}
-                //else turnAngle = GetNewAngle();
+                    Quaternion turnRotation = Quaternion.Euler(0f, -m_TurnSpeed * Time.deltaTime, 0f);
+                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                }
+                else if (turnAngle < -2.0f) //Turn Right
+                {
+                    Quaternion turnRotation = Quaternion.Euler(0f, m_TurnSpeed * Time.deltaTime, 0f);
+                    m_Rigidbody.MoveRotation(m_Rigidbody.rotation * turnRotation);
+                }          
             }
         }
 
@@ -317,6 +294,18 @@ namespace Complete
             } while (!gotPoint);
 
             return point;
+        }
+
+        public void GoForAmmo()
+        {
+            if (!noAmmo)
+            {
+                GameObject ammoBox = Instantiate(ammoPrefab, ammoLocation, Quaternion.identity);
+                ammoBox.GetComponent<Ammo>().ID = tankID;
+                ammoBox.GetComponent<MeshRenderer>().material.color = tankColor;
+                noAmmo = true;
+                gotPoint = false;
+            }
         }
 
         private void SelectTarget()
@@ -357,6 +346,17 @@ namespace Complete
             }
         }
 
+        private void OnCollisionEnter(Collision collision)
+        {
+            if (collision.gameObject.CompareTag("Ammo") && collision.gameObject.GetComponent<Ammo>().ID == tankID)
+            {
+                Destroy(collision.gameObject);
+                gameObject.SendMessage("OnGotAmmo");
+                noAmmo = false;
+                gotPoint = false;
+            }
+        }
+
         private void OnTriggerEnter(Collider other)
         {
             if (!player && other.gameObject != gameObject)
@@ -367,7 +367,7 @@ namespace Complete
                     seekTarget = null;
                     SelectTarget();
                     gotPoint = false;
-                }
+                }               
             }
         }
 

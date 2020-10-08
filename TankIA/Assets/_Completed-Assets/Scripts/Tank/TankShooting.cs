@@ -16,12 +16,14 @@ namespace Complete
         public bool player;
         public GameObject turret;
         public float turretTurnSpeed = 360.0f;
+        public int maxShells = 5;
 
         private float m_CurrentLaunchForce;         // The force that will be given to the shell when the fire button is released.
         private bool m_Fired;                       // Whether or not the shell has been launched with this button press.
         private float cd = 2.0f;
         public GameObject target;
         private float angle;
+        private int currentShells;
 
 
         private void OnEnable()
@@ -31,6 +33,7 @@ namespace Complete
             target = null;
             angle = 0;
             turret.transform.rotation = transform.rotation;
+            currentShells = maxShells;
         }
 
 
@@ -57,17 +60,17 @@ namespace Complete
                 {
                     if (target != null)
                     {
-                        if (Physics.Raycast(turret.transform.position, target.transform.position)) //Enemy in sight
-                        {
-                            Debug.DrawLine(turret.transform.position, target.transform.position, Color.green);
+                        //if (Physics.Raycast(turret.transform.position, target.transform.position,20.0f)) //Enemy in sight
+                        //{
+                           // Debug.DrawLine(turret.transform.position, target.transform.position, Color.green);
                             Vector3 direction = (target.transform.position - turret.transform.position);
                             angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
-                        }
-                        else //Not in sight
+                        //}
+                        /*else //Not in sight
                         {
                             Vector3 direction = (gameObject.transform.position - turret.transform.position);
                             angle = Vector3.SignedAngle(direction, turret.transform.forward, Vector3.up);
-                        }
+                        }*/
 
                         if (angle > 5.0f)
                         {
@@ -78,12 +81,29 @@ namespace Complete
                             turret.transform.Rotate(0, turretTurnSpeed * (Time.deltaTime * 50), 0, Space.Self);
                         }
 
-                        if (angle < 10 && angle > -10 && !m_Fired) Fire();
+                        if (angle < 10 && angle > -10 && !m_Fired && currentShells > 0)
+                        {
+                            RaycastHit hit;
+                            Physics.Raycast(turret.transform.position, target.transform.position,out hit,20.0f);
+                            if (hit.collider) //Enemy in sight
+                            {
+                                currentShells -= 1;
+                                if (currentShells <= 0)
+                                {
+                                    gameObject.SendMessage("GoForAmmo");
+                                }
+                                Fire();
+                            }                                                                                                              
+                        }
                     }
                 }              
             }
         }
 
+        public void OnGotAmmo()
+        {
+            currentShells = maxShells;
+        }
 
         private void Fire()
         {
