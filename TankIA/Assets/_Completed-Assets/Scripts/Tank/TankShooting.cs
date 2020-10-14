@@ -108,10 +108,30 @@ namespace Complete
         private void Fire()
         {
             m_Fired = true;
-
             float distance = Vector3.Distance(m_FireTransform.position, target.transform.position);
+
+            float tan1;//,tan2;
+            float temp1;//,temp2;
+            float x, y;
+            x = distance;//target.transform.position.x - transform.position.x;
+            y = target.transform.position.y - (transform.position.y + 0.05f);
+            temp1 /*= temp2*/ = m_CurrentLaunchForce * m_CurrentLaunchForce;
+            float root = Mathf.Sqrt(Mathf.Pow(m_CurrentLaunchForce,4) - (9.81f * (9.81f*(x*x) + (2 * m_CurrentLaunchForce * m_CurrentLaunchForce * y))));
+            temp1 += root;
+            //temp2 -= root;
+            tan1 = temp1 / (9.81f*x);
+            //tan2 = temp2 / (9.81f * x);
+            //Debug.Log("Tan 1 :" + tan1);
+            //Debug.Log("Tan 2 :" + tan2);
+            //float angle1, angle2;
+            //angle1 = Mathf.Atan(tan1);
+            //angle2 = Mathf.Atan(tan2);
+            //Debug.Log("ShootAngle :" + angle1);
+            //Debug.Log("Angle 2 :" + angle2);
             //Debug.Log("Distance: " + distance);
-            float shotAngle;
+            float shotAngle = Mathf.Atan(tan1);
+            Debug.Log("ShootAngle :" + shotAngle);
+            /*float shotAngle;
             if (distance / 2 > m_CurrentLaunchForce) //objective out of range
             {
                 shotAngle = 45.0f;
@@ -137,7 +157,7 @@ namespace Complete
                     //Debug.Log("Fix angle: " + fixAngle);
                 }
             }
-            Debug.Log("Shot angle: "+ shotAngle);
+            Debug.Log("Shot angle: "+ shotAngle);*/
             Debug.DrawLine(m_FireTransform.position,target.transform.position,Color.magenta,3.0f);
             
             GameObject shellInstance = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation);
