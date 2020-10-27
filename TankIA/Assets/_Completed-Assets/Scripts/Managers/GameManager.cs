@@ -16,8 +16,9 @@ namespace Complete
         public GameObject m_TankPrefab;             // Reference to the prefab the players will control.
         public TankManager[] m_Tanks;               // A collection of managers for enabling and disabling different aspects of the tanks.
         public GameObject pauseScreen;
+        [SerializeField] GameObject playerBtn;
+        [SerializeField] GameObject IABtn;
 
-        
         private int m_RoundNumber;                  // Which round the game is currently on.
         private WaitForSeconds m_StartWait;         // Used to have a delay whilst the round starts.
         private WaitForSeconds m_EndWait;           // Used to have a delay whilst the round or game ends.
@@ -33,7 +34,8 @@ namespace Complete
 
             SpawnAllTanks();
             SetCameraTargets();
-
+            IABtn.SetActive(false);
+            playerBtn.SetActive(true);
             // Once the tanks have been created and the camera is using them as targets, start the game.
             StartCoroutine (GameLoop ());
         }
@@ -41,16 +43,13 @@ namespace Complete
 
         private void SpawnAllTanks()
         {
-            m_Tanks[0].m_Instance = Instantiate(m_TankPrefab, m_Tanks[0].m_SpawnPoint, Quaternion.identity) as GameObject;
-            m_Tanks[0].isPlayer = true;
-            m_Tanks[0].Setup();
-            // For all the tanks...
-            for (int i = 1; i < m_Tanks.Length; i++)
+            /*m_Tanks[0].m_Instance = Instantiate(m_TankPrefab, m_Tanks[0].m_SpawnPoint, Quaternion.identity) as GameObject;
+            m_Tanks[0].isPlayer = false;
+            m_Tanks[0].Setup();*/
+            for (int i = 0; i < m_Tanks.Length; i++)
             {
-                // ... create them, set their player number and references needed for control.
-                m_Tanks[i].m_Instance =
-                    Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint, Quaternion.identity) as GameObject;
-                m_Tanks[0].isPlayer = false;
+                m_Tanks[i].m_Instance = Instantiate(m_TankPrefab, m_Tanks[i].m_SpawnPoint, Quaternion.identity) as GameObject;
+                m_Tanks[i].isPlayer = false;
                 m_Tanks[i].Setup();
             }
         }
@@ -58,20 +57,41 @@ namespace Complete
 
         private void SetCameraTargets()
         {
-            // Create a collection of transforms the same size as the number of tanks.
-            Transform/*[]*/ targets; /*= new Transform[m_Tanks.Length]*/;
+            Transform[] targets = new Transform[m_Tanks.Length];
 
-            // For each of these transforms...
-            //for (int i = 0; i < targets.Length; i++)
-            //{
-                // ... set it to the appropriate tank transform.
-                targets/*[i]*/ = m_Tanks[1].m_Instance.transform;
-            //}
+            for (int i = 0; i < targets.Length; i++)
+            {
+                targets[i] = m_Tanks[i].m_Instance.transform;
+            }
 
-            // These are the targets the camera should follow.
             m_CameraControl.m_Targets = targets;
         }
 
+        public void TogglePlayerControl()
+        {
+            m_Tanks[0].TooglePlayer(true);
+            SetPlayerOnlyTarget();
+            IABtn.SetActive(true);
+            playerBtn.SetActive(false);
+        }
+
+        public void ToggleIAControl()
+        {
+            m_Tanks[0].TooglePlayer(false);
+            SetCameraTargets();
+            IABtn.SetActive(false);
+            playerBtn.SetActive(true);
+        }
+
+
+        public void SetPlayerOnlyTarget()
+        {
+            Transform[] targets = new Transform[1];
+
+            targets[0] = m_Tanks[0].m_Instance.transform;
+            
+            m_CameraControl.m_Targets = targets;
+        }
 
         // This is called from start and will run each phase of the game one after another.
         private IEnumerator GameLoop ()

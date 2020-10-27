@@ -155,6 +155,13 @@ namespace Complete
             }
         }
 
+        public void ResetBehaviour()
+        {
+            currentTarget = null;
+            seekTarget = null;
+            gotPoint = false;
+        }
+
 
         private void Move()
         {

@@ -17,6 +17,9 @@ namespace Complete
         public GameObject turret;
         public float turretTurnSpeed = 360.0f;
         public int maxShells = 5;
+        public bool drawCanvas = false;
+        [SerializeField] GameObject canvas;
+        [SerializeField] Text playerAmmo;
 
         private float m_CurrentLaunchForce;         // The force that will be given to the shell when the fire button is released.
         private bool m_Fired;                       // Whether or not the shell has been launched with this button press.
@@ -34,6 +37,17 @@ namespace Complete
             angle = 0;
             turret.transform.rotation = transform.rotation;
             currentShells = maxShells;
+            DrawShellsAmmo();
+        }
+
+        public void SetCanvas(bool val)
+        {
+            canvas.SetActive(val);
+        }
+
+        private void DrawShellsAmmo()
+        {
+            if (playerAmmo != null) playerAmmo.text = currentShells.ToString();
         }
 
 
@@ -45,7 +59,7 @@ namespace Complete
                 {
                     if (Input.GetKeyDown(KeyCode.Space))
                     {
-                        if (m_Fired == false) Fire();
+                        if (m_Fired == false && currentShells > 0) Fire();
                     }
                     if (Input.GetKey(KeyCode.LeftArrow))
                     {
@@ -87,11 +101,11 @@ namespace Complete
                             Physics.Raycast(turret.transform.position, target.transform.position,out hit,20.0f);
                             if (hit.collider) //Enemy in sight
                             {
-                                currentShells -= 1;
+                                /*currentShells -= 1;
                                 if (currentShells <= 0)
                                 {
                                     gameObject.SendMessage("GoForAmmo");
-                                }
+                                }*/
                                 Fire();
                             }                                                                                                              
                         }
@@ -103,34 +117,31 @@ namespace Complete
         public void OnGotAmmo()
         {
             currentShells = maxShells;
+            DrawShellsAmmo();
         }
 
         private void Fire()
         {
             m_Fired = true;
-            float distance = Vector3.Distance(m_FireTransform.position, target.transform.position);
+            float shotAngle = 0;
+            if (!player)
+            {
+                float distance = Vector3.Distance(m_FireTransform.position, target.transform.position);
 
-            float tan1;//,tan2;
-            float temp1;//,temp2;
-            float x, y;
-            x = distance;//target.transform.position.x - transform.position.x;
-            y = target.transform.position.y - (transform.position.y + 0.05f);
-            temp1 /*= temp2*/ = m_CurrentLaunchForce * m_CurrentLaunchForce;
-            float root = Mathf.Sqrt(Mathf.Pow(m_CurrentLaunchForce,4) - (9.81f * (9.81f*(x*x) + (2 * m_CurrentLaunchForce * m_CurrentLaunchForce * y))));
-            temp1 += root;
-            //temp2 -= root;
-            tan1 = temp1 / (9.81f*x);
-            //tan2 = temp2 / (9.81f * x);
-            //Debug.Log("Tan 1 :" + tan1);
-            //Debug.Log("Tan 2 :" + tan2);
-            //float angle1, angle2;
-            //angle1 = Mathf.Atan(tan1);
-            //angle2 = Mathf.Atan(tan2);
-            //Debug.Log("ShootAngle :" + angle1);
-            //Debug.Log("Angle 2 :" + angle2);
-            //Debug.Log("Distance: " + distance);
-            float shotAngle = Mathf.Atan(tan1);
-            Debug.Log("ShootAngle :" + shotAngle);
+                float tan1;
+                float temp1;
+                float x, y;
+                x = distance;
+                y = target.transform.position.y - (transform.position.y + 0.05f);
+                temp1 = m_CurrentLaunchForce * m_CurrentLaunchForce;
+                float root = Mathf.Sqrt(Mathf.Pow(m_CurrentLaunchForce, 4) - (9.81f * (9.81f * (x * x) + (2 * m_CurrentLaunchForce * m_CurrentLaunchForce * y))));
+                temp1 += root;
+                tan1 = temp1 / (9.81f * x);
+
+                shotAngle = Mathf.Atan(tan1);
+                Debug.Log("ShootAngle :" + shotAngle);
+                Debug.DrawLine(m_FireTransform.position, target.transform.position, Color.magenta, 3.0f);
+            }
             /*float shotAngle;
             if (distance / 2 > m_CurrentLaunchForce) //objective out of range
             {
@@ -157,20 +168,19 @@ namespace Complete
                     //Debug.Log("Fix angle: " + fixAngle);
                 }
             }
-            Debug.Log("Shot angle: "+ shotAngle);*/
-            Debug.DrawLine(m_FireTransform.position,target.transform.position,Color.magenta,3.0f);
+            Debug.Log("Shot angle: "+ shotAngle);*/           
             
             GameObject shellInstance = Instantiate(m_Shell, m_FireTransform.position, m_FireTransform.rotation);
             Vector3 v = shellInstance.transform.rotation.eulerAngles;
             shellInstance.transform.rotation = Quaternion.Euler(-shotAngle, v.y, v.z);
 
-            // Set the shell's velocity to the launch force in the fire position's forward direction.
             shellInstance.GetComponent<Rigidbody>().velocity = m_CurrentLaunchForce * shellInstance.transform.forward.normalized;
+            currentShells -= 1;
+            if(currentShells <= 0) gameObject.SendMessage("GoForAmmo");
 
-            // Change the clip to the firing clip and play it.
             m_ShootingAudio.clip = m_FireClip;
             m_ShootingAudio.Play();
-            
+            DrawShellsAmmo();
             StartCoroutine(ChargeShell());
         }        
 
