@@ -202,7 +202,7 @@ namespace Complete
                     }
                     else //Wandering
                     {
-                        Debug.Log("Wandering");
+                        Debug.Log("Wondering");
                         destinationPoint = RandomPointNavMesh(transform.position);
 
                         if (path.status == NavMeshPathStatus.PathInvalid) gotPoint = false;
